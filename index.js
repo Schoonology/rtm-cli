@@ -1,4 +1,5 @@
 var RTMClient = require('../rtm'),
+    repl = require('repl'),
     optimist = require('optimist'),
     argv = optimist
         .describe('help', 'Show this help message, then exit.')
@@ -10,7 +11,6 @@ if (argv.help) {
     process.exit();
 }
 
-var client = new RTMClient({
-    apiKey: argv.apiKey,
-    secret: argv.secret
-});
+var client = new RTMClient(argv);
+
+repl.start({}).context.client = client;
