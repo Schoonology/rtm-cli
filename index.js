@@ -1,10 +1,13 @@
 var RTMClient = require('../rtm'),
     repl = require('repl'),
-    alfred = require('alfred'),
     optimist = require('optimist'),
+    Cache = require('./lib/cache'),
+    stepup = require('stepup'),
     argv = optimist
+        .usage('Usage: $0 [command]')
         .describe('help', 'Show this help message, then exit.')
         .default(require('./config'))
+        .demand([1])
         .argv;
 
 if (argv.help) {
@@ -13,30 +16,46 @@ if (argv.help) {
 }
 
 var client = new RTMClient(argv),
-    context = repl.start({}).context;
+    command = argv._[0],
+    cache = new Cache();
 
-context.client = client;
-context.alfred = alfred;
-context.callback = function callback(err, data) {
-    this.err = err;
-    this.data = data;
-    console.log('Done.');
+var commands = {
+    'repl': function startRepl() {
+        var context = repl.start({}).context;
+        context.client = client;
+        context.cache = cache;
+        context.callback = function callback(err, data) {
+            this.err = err;
+            this.data = data;
+            console.log('Done.');
+        };
+    },
+    'list': function taskList() {
+        stepup(function errorHandler(err) {
+            console.error(err.stack);
+        }, function openCache() {
+            cache.open(this);
+        }, function getToken() {
+            cache.get('token', this);
+        }, function checkToken(token) {
+            console.log(token);
+        });
+    }
 };
 
-function openDB() {
-    var fs = require('fs');
-    fs.mkdir(process.env.HOME + '/.rtm', function (err) {
-        if (err.code !== 'EEXIST') {
-            console.error(err);
-            return;
-        }
+// 1. Check the current token stored in Alfred.
+//  a. If valid, continue.
+//  b. If invalid, log in and store the token in Alfred.
+// 2. Perform the requested action.
+// 3. If the requested action requires a Timeline, check for one in Alfred.
+//  a. If one exists, continue.
+//  b. If one doesn't exist, create a Timeline and store in Alfred.
+// 4. If we ever fail, check the error result.
+//  a. If it's because of a bad timeline or a bad token, remove them from Alfred and start over.
 
-        alfred.open(process.env.HOME + '/.rtm', function (err, db) {
-            if (err) {
-                console.error(err);
-            }
-
-            db.rtm.get('foo', console.log);
-        });
-    });
+var commandFn = commands[argv._[0]];
+if (commandFn == null) {
+    console.error('RTM: "' + command + '" is not a valid command.');
+    process.exit();
 }
+commandFn();
