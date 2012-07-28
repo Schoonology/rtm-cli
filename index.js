@@ -3,6 +3,7 @@ var RTMClient = require('../rtm'),
     optimist = require('optimist'),
     Cache = require('./lib/cache'),
     stepup = require('stepup'),
+    open = require('open'),
     argv = optimist
         .usage('Usage: $0 [command]')
         .describe('help', 'Show this help message, then exit.')
@@ -15,9 +16,17 @@ if (argv.help) {
     process.exit();
 }
 
+process.stdin.resume();
+process.stdin.setEncoding('utf8');
+
 var client = new RTMClient(argv),
     command = argv._[0],
-    cache = new Cache();
+    cache = new Cache(),
+    user = null;
+
+function basicErrorHandler(err) {
+    console.error(err.stack);
+}
 
 var commands = {
     'repl': function startRepl() {
@@ -31,14 +40,52 @@ var commands = {
         };
     },
     'list': function taskList() {
-        stepup(function errorHandler(err) {
-            console.error(err.stack);
-        }, function openCache() {
+        stepup(basicErrorHandler, function openCache() {
             cache.open(this);
-        }, function getToken() {
+        }, function getPreviousToken() {
             cache.get('token', this);
         }, function checkToken(token) {
-            console.log(token);
+            if (token != null) {
+                client.checkToken(token, this);
+                return;
+            }
+
+            stepup(basicErrorHandler, function getAuthURL() {
+                client.getDesktopAuthURL('write', this);
+            }, function openAuthURL(url) {
+                console.log('Once you have granted this application access to Remember the Milk, press any key to continue.');
+                open(url);
+
+                // TODO: This is where I don't like the semantics of step(up) with "this" being a Function.
+                // "this" should be an Object, with (like .parallel) members for both callback and event
+                // handler continuation generators.
+                process.stdin.once('data', function (chunk) { this(); }.bind(this));
+            }, function getToken() {
+                client.getToken(this);
+            }, function checkToken(token) {
+                client.checkToken(token, this);
+            }.bind(this));
+        }, function cacheToken(response) {
+            user = response.user;
+            cache.put('token', response.token, this);
+        }, function welcome() {
+            console.log('Welcome, ' + user.fullname + '!');
+            this();
+        }, function getLists() {
+            client.getLists(this);
+        }, function printLists(lists) {
+            console.log('Available lists:');
+            lists.forEach(function (list) {
+                if (list.archived === '1' || list.deleted === '1') {
+                    return;
+                }
+
+                console.log('[' + list.id + '] ' + list.name);
+            });
+            this();
+        }, function done() {
+            console.log('Done.');
+            process.exit();
         });
     }
 };

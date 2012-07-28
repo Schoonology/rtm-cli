@@ -9,7 +9,8 @@
     "dependencies": {
         "optimist": "",
         "alfred": "",
-        "stepup": ""
+        "stepup": "",
+        "open": ""
     },
     "license": "BSD"
 }
