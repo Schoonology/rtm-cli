@@ -6,10 +6,12 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
     },
+    "bin": {
+        "rtm": "./index.js"
+    },
     "dependencies": {
         "optimist": "",
-        "alfred": "",
-        "stepup": "",
+        "nconf": "",
         "open": ""
     },
     "license": "BSD"
