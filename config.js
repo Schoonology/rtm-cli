@@ -1,5 +1,0 @@
-module.exports = {
-    apiKey: "21ff1badf4787a18f528322514810e37",
-    secret: "509a8d7b011eeafb",
-    timeline: '722298672'
-};

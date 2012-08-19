@@ -1,11 +1,11 @@
 var rtm = require('../rtm'),
     repl = require('repl'),
+    fs = require('fs'),
     optimist = require('optimist'),
     nconf = require('nconf'),
     argv = optimist
         .usage('Usage: $0 [command]')
         .describe('help', 'Show this help message, then exit.')
-        .default(require('./config'))
         .demand([1])
         .argv;
 
@@ -15,9 +15,20 @@ if (argv.help) {
 }
 
 // TODO: Find the right place to put the config file.
-nconf.argv().env().file(__dirname + '/config.json');
+nconf.add('app', {
+    type: 'file',
+    file: __dirname + '/config.json'
+}).add('local', {
+    type: 'file',
+    file: process.env.HOME + '/.rtm'
+});
 
-var session = new rtm.Session(argv),
+var session = new rtm.Session({
+        apiKey: nconf.get('apiKey'),
+        secret: nconf.get('secret'),
+        token: nconf.get('token'),
+        timeline: nconf.get('timeline')
+    }),
     command = argv._[0];
 
 var commands = {
@@ -33,7 +44,9 @@ var commands = {
     },
     'login': function login() {
         session.login(function (err, data) {
-            console.log('Login successful:', data);
+            // console.log('Login successful:', data);
+            nconf.stores.local.set('token', data.token);
+            nconf.stores.local.save(function (err, data) {});
         });
     }
 };
