@@ -1,6 +1,7 @@
 var rtm = require('../rtm'),
     repl = require('repl'),
     fs = require('fs'),
+    util = require('util'),
     optimist = require('optimist'),
     nconf = require('nconf'),
     argv = optimist
@@ -47,6 +48,31 @@ var commands = {
             // console.log('Login successful:', data);
             nconf.stores.local.set('token', data.token);
             nconf.stores.local.save(function (err, data) {});
+        });
+    },
+    'add': function addTask() {
+        session.addTask(argv._[1], function (err, transactionID) {
+            if (err) {
+                console.error(err.stack ? err.stack : err.message);
+                return;
+            }
+
+            nconf.stores.local.set('lastTransactionID', transactionID);
+            nconf.stores.local.save(function (err, data) {});
+        });
+    },
+    'lists': function showLists() {
+        session.getLists(function (err, lists) {
+            if (err) {
+                console.error(err.stack ? err.stack : err.message);
+                return;
+            }
+
+            console.log('Lists:');
+            lists.forEach(function (list) {
+                // TODO: Make a separate, easier-to-type ID scheme for lists & tasks.
+                console.log(util.format('[%s] %s', list.id, list.name));
+            });
         });
     }
 };
